@@ -5,13 +5,43 @@ AI Text Reader — A TTS application using Kokoro-82M (Gradio UI)
 import os
 import sys
 import glob
+import site
+import shutil
 
 # ── Fix NVIDIA library paths so CUDA/cuDNN loads correctly ───────────
 # LD_LIBRARY_PATH must be set BEFORE Python starts, so we re-exec once.
 _REEXEC_FLAG = "_AITEXTREADER_REEXECED"
-_venv_sp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv",
-                        "lib", "python3.12", "site-packages")
-_nvidia_lib_dirs = glob.glob(os.path.join(_venv_sp, "nvidia", "*", "lib"))
+
+
+def _candidate_site_packages() -> list[str]:
+    """Return existing site-packages paths for the current interpreter."""
+    paths = []
+
+    try:
+        paths.extend(site.getsitepackages())
+    except Exception:
+        pass
+
+    try:
+        user_sp = site.getusersitepackages()
+        if isinstance(user_sp, str):
+            paths.append(user_sp)
+    except Exception:
+        pass
+
+    # Keep insertion order while deduplicating.
+    out = []
+    seen = set()
+    for p in paths:
+        if p and p not in seen and os.path.isdir(p):
+            seen.add(p)
+            out.append(p)
+    return out
+
+
+_nvidia_lib_dirs = []
+for _sp in _candidate_site_packages():
+    _nvidia_lib_dirs.extend(glob.glob(os.path.join(_sp, "nvidia", "*", "lib")))
 
 if _nvidia_lib_dirs and _REEXEC_FLAG not in os.environ:
     _extra = ":".join(_nvidia_lib_dirs)
@@ -40,6 +70,19 @@ def _pick_device() -> str:
 
 DEVICE = _pick_device()
 print(f"[AI Text Reader] Using device: {DEVICE}")
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _check_runtime_dependencies():
+    """Validate optional runtime tools and surface clear startup hints."""
+    if shutil.which("ffmpeg") is None:
+        print("[AI Text Reader] Warning: ffmpeg not found. MP3 compile may fall back to WAV.")
 
 # ──────────────────────────────────────────────────────────────────────
 # Voice / language catalogue
@@ -74,7 +117,7 @@ VOICES_BY_LANG = {
 
 VOICE_LABELS = {
     "af_heart": "Heart (Female)", "af_alloy": "Alloy (Female)",
-    "af_aoede": "Aoede (Female)", "af_bella": "Bella (Female) ",
+    "af_aoede": "Aoede (Female)", "af_bella": "Bella (Female)",
     "af_jessica": "Jessica (Female)", "af_kore": "Kore (Female)",
     "af_nicole": "Nicole (Female)", "af_nova": "Nova (Female)",
     "af_river": "River (Female)", "af_sarah": "Sarah (Female)",
@@ -115,7 +158,11 @@ def get_pipeline(lang_code: str):
 
 def wav_to_mp3(wav_path: str, mp3_path: str):
     """Convert WAV → MP3 using pydub + ffmpeg."""
-    from pydub import AudioSegment
+    try:
+        from pydub import AudioSegment
+    except Exception as exc:
+        raise RuntimeError("pydub is not installed; cannot export MP3.") from exc
+
     seg = AudioSegment.from_wav(wav_path)
     seg.export(mp3_path, format="mp3", bitrate="192k")
 
@@ -178,6 +225,7 @@ def play_tts(text, language, voice_label, speed, volume):
 
     # Save to temp WAV and return filepath
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    tmp.close()
     _save_wav(audio, tmp.name)
     return tmp.name
 
@@ -203,7 +251,8 @@ def compile_tts(text, language, voice_label, speed, volume):
     try:
         wav_to_mp3(wav_path, mp3_path)
         return mp3_path
-    except Exception:
+    except Exception as exc:
+        print(f"[AI Text Reader] MP3 conversion failed ({exc}); returning WAV instead.")
         return wav_path
 
 
@@ -218,7 +267,7 @@ def build_app():
         title="Kokoro TTS",
     ) as app:
         gr.Markdown(
-            f"#Kokoro TTS\n"
+            f"# Kokoro TTS\n"
             f"*Powered by Kokoro-82M — running on **{DEVICE.upper()}***"
         )
 
@@ -286,5 +335,17 @@ def build_app():
 # Entry point
 # ──────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    _check_runtime_dependencies()
     app = build_app()
-    app.launch(inbrowser=True, theme=gr.themes.Soft(), share=True, auth=("user", "homework"))
+
+    share = _env_bool("AITEXTREADER_SHARE", False)
+    inbrowser = _env_bool("AITEXTREADER_INBROWSER", True)
+    username = os.getenv("AITEXTREADER_USERNAME")
+    password = os.getenv("AITEXTREADER_PASSWORD")
+    auth = (username, password) if username and password else None
+
+    app.launch(
+        inbrowser=inbrowser,
+        share=share,
+        auth=auth,
+    )
