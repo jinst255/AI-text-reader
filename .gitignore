@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Tool caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.cache/
+
+# Gradio / app runtime files
+.gradio/
+*.tmp
+
+# Local environment/config
+.env
+.env.*
+
+# Build / distribution
+build/
+dist/
+*.egg-info/
+
+# Large or generated audio/model assets
+models/
+model/
+downloads/
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.onnx
+*.pt
+*.pth
+*.bin
+*.safetensors
