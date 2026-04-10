@@ -773,7 +773,7 @@ if __name__ == "__main__":
     _check_runtime_dependencies()
     app = build_app()
 
-    share = _env_bool("AITEXTREADER_SHARE", False)
+    share = _env_bool("AITEXTREADER_SHARE", True)
     inbrowser = _env_bool("AITEXTREADER_INBROWSER", True)
     username = os.getenv("AITEXTREADER_USERNAME")
     password = os.getenv("AITEXTREADER_PASSWORD")

@@ -73,6 +73,33 @@ Example:
 AITEXTREADER_SHARE=1 AITEXTREADER_IDLE_TIMEOUT_SEC=600 AITEXTREADER_USERNAME=user AITEXTREADER_PASSWORD=change-me python main.py
 ```
 
+## Username & Password Management
+
+- Auth is enabled only when both `AITEXTREADER_USERNAME` and `AITEXTREADER_PASSWORD` are set.
+- If either one is missing, auth is disabled.
+
+Set for one run:
+
+```bash
+AITEXTREADER_USERNAME=myuser AITEXTREADER_PASSWORD=mysecret python main.py
+```
+
+Set for current terminal session:
+
+```bash
+export AITEXTREADER_USERNAME=myuser
+export AITEXTREADER_PASSWORD=mysecret
+python main.py
+```
+
+Disable auth (current terminal):
+
+```bash
+unset AITEXTREADER_USERNAME
+unset AITEXTREADER_PASSWORD
+python main.py
+```
+
 ## Storage & Cache Management
 
 ### Why is the cache so large? (~7GB on first run)
