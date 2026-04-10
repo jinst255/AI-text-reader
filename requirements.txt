@@ -4,3 +4,4 @@ soundfile
 pydub
 kokoro
 torch
+huggingface_hub
