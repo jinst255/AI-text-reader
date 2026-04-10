@@ -391,21 +391,33 @@ def _deactivate_engine_internal(detail: str = ""):
 def _inactive_ui_updates(detail: str = ""):
     return (
         _status_message(False, detail),
-        gr.update(interactive=False),
-        gr.update(interactive=False),
+        gr.update(interactive=False, value="▶  Play (Activate Engine First)"),
+        gr.update(interactive=False, value="⚙  Compile to MP3 (Activate Engine First)"),
+        gr.update(interactive=True, value="Activate Engine"),
+        gr.update(interactive=False, value="Deactivate Engine"),
         gr.update(interactive=True),
-        gr.update(interactive=False),
-        gr.update(interactive=False),
     )
 
 
 def _active_ui_updates(detail: str = ""):
     return (
         _status_message(True, detail),
+        gr.update(interactive=True, value="▶  Play"),
+        gr.update(interactive=True, value="⚙  Compile to MP3"),
+        gr.update(interactive=False, value="Activate Engine"),
+        gr.update(interactive=True, value="Deactivate Engine"),
         gr.update(interactive=True),
-        gr.update(interactive=True),
-        gr.update(interactive=False),
-        gr.update(interactive=True),
+    )
+
+
+def _activating_ui_updates(detail: str = ""):
+    msg = detail or "Engine status: ACTIVATING... Please wait while the engine prepares."
+    return (
+        msg,
+        gr.update(interactive=False, value="▶  Play (Preparing Engine...)"),
+        gr.update(interactive=False, value="⚙  Compile to MP3 (Preparing Engine...)"),
+        gr.update(interactive=False, value="Activating..."),
+        gr.update(interactive=False, value="Deactivate Engine"),
         gr.update(interactive=True),
     )
 
@@ -487,13 +499,8 @@ def begin_activation():
     print("[AI Text Reader] User clicked Activate Engine")
     _activation_in_progress = True
     _touch_activity()
-    return (
-        "Engine status: ACTIVATING... Please wait while the model is checked, downloaded if needed, and prepared.",
-        gr.update(interactive=False),
-        gr.update(interactive=False),
-        gr.update(interactive=False),
-        gr.update(interactive=False),
-        gr.update(interactive=False),
+    return _activating_ui_updates(
+        "Engine status: ACTIVATING... Please wait while the model is checked, downloaded if needed, and prepared."
     )
 
 
@@ -505,6 +512,10 @@ def deactivate_engine():
 
 def sync_engine_timeout_state():
     """Background heartbeat that keeps UI in sync with timeout state."""
+    if _activation_in_progress:
+        return _activating_ui_updates(
+            "Engine status: ACTIVATING... Downloading/loading model. Please wait."
+        )
     if _expire_if_inactive():
         return _inactive_ui_updates("Timed out due to inactivity.")
     if _engine_active:
@@ -653,6 +664,10 @@ def build_app():
             )
 
         with main_panel:
+            with gr.Row():
+                activate_btn = gr.Button("Activate Engine", variant="primary")
+                deactivate_btn = gr.Button("Deactivate Engine", variant="secondary", interactive=False)
+
             engine_status = gr.Markdown(_status_message(False))
 
             with gr.Row():
@@ -662,7 +677,7 @@ def build_app():
                         placeholder="Type or paste your text here…",
                         lines=10,
                         max_lines=30,
-                        interactive=False,
+                        interactive=True,
                     )
 
                 with gr.Column(scale=1):
@@ -692,12 +707,10 @@ def build_app():
             )
 
             with gr.Row():
-                activate_btn = gr.Button("Activate Engine", variant="primary")
-                deactivate_btn = gr.Button("Deactivate Engine", variant="secondary", interactive=False)
-
-            with gr.Row():
                 play_btn = gr.Button("▶  Play", variant="primary", size="lg", interactive=False)
                 compile_btn = gr.Button("⚙  Compile to MP3", variant="secondary", size="lg", interactive=False)
+
+            gr.Markdown("Tip: Activate Engine first. Play and Compile unlock when the engine is ready.")
 
             audio_output = gr.Audio(
                 label="Audio Player",
